@@ -1,0 +1,692 @@
+/* Commonplace — phone-first reference trainer.
+
+   Same visual language as Halyard and Reckoner: Bricolage Grotesque for
+   display, Instrument Sans for UI, an 18px radius, one hue doing all the
+   signalling, and few things on any screen. What changes per app is the hue.
+   Halyard is orange, Reckoner green; Commonplace is ink blue with gilt — a
+   commonplace book and a gilded frame.
+
+   One addition the others do not need: EB Garamond, used *only* for the
+   quotations and the paintings' titles. Shakespeare set in a UI sans reads like
+   a push notification. The chrome stays in the family; the content gets the
+   face it deserves.
+
+   Deliberately a single light theme with a dark counterpart, both painted
+   explicitly so the page holds on any host background.
+*/
+
+/* ── typefaces (self-hosted so they survive offline and a strict CSP) ── */
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-style: normal; font-weight: 400 800; font-display: swap;
+  src: url(fonts/bricolage-latin.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url(fonts/instrument-latin.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'EB Garamond';
+  font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url(fonts/garamond-400-latin.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'EB Garamond';
+  font-style: italic; font-weight: 400 700; font-display: swap;
+  src: url(fonts/garamond-italic-400-latin.woff2) format('woff2');
+}
+
+:root {
+  --paper: #ffffff;
+  --paper-2: #f8f8fd;      /* raised surface, biased toward the accent */
+  --paper-3: #eeeefc;      /* pressed / selected */
+  --line: #e7e7f3;
+  --line-2: #d2d2e8;
+  --ink: #15152b;
+  --ink-2: #5a5a76;
+  --ink-3: #8f8fa4;
+
+  --indigo: #4a4ecf;
+  --indigo-deep: #2f2f9e;
+  --violet: #7d80f2;
+  --gold: #d69a1e;
+  --gold-soft: #fff3d6;
+  --gold-line: #f0d38a;
+
+  --good: #1c8b4e;
+  --good-bg: #e7f6ec;
+  --good-line: #9dd6b3;
+  --bad: #d1362c;
+  --bad-bg: #fdeceb;
+  --bad-line: #f0b0ab;
+
+  --font-display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --font-ui: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-quote: 'EB Garamond', Georgia, 'Times New Roman', serif;
+
+  --radius: 18px;
+  --tap: 56px;
+  --pad: 20px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --shadow-sm: 0 1px 2px rgba(21, 21, 43, .05);
+  --shadow-md: 0 4px 14px rgba(21, 21, 43, .08);
+  --shadow-lg: 0 12px 32px rgba(21, 21, 43, .13);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --paper: #131322;
+  --paper-2: #1b1b2e;
+  --paper-3: #262641;
+  --line: #2b2b45;
+  --line-2: #3a3a58;
+  --ink: #f0f0f7;
+  --ink-2: #b4b4c8;
+  --ink-3: #8383a0;
+
+  --indigo: #8a8dff;
+  --indigo-deep: #a5a7ff;
+  --violet: #b9baff;
+  --gold: #e8bb52;
+  --gold-soft: #33291250;
+  --gold-line: #6b551f;
+
+  --good: #7fd39c;
+  --good-bg: #17301f;
+  --good-line: #2f5c3f;
+  --bad: #f0938a;
+  --bad-bg: #331d1c;
+  --bad-line: #6b3730;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .35);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, .4);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+/* Several components set an explicit `display`, which would otherwise beat the
+   user-agent rule for the hidden attribute. Toggling `el.hidden` must win. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0; height: 100%;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 16px/1.45 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: contain;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+h1, h2 { margin: 0; font-family: var(--font-display); font-weight: 700; letter-spacing: -.3px; }
+
+:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; border-radius: 8px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ══════════ boot ══════════ */
+.boot {
+  position: fixed; inset: 0; display: grid; place-content: center; gap: 16px;
+  justify-items: center; background: var(--paper); z-index: 60;
+}
+.boot-mark {
+  font-family: var(--font-display); font-size: 2.4rem; font-weight: 800;
+  letter-spacing: -1.4px; color: var(--ink);
+}
+/* Same two-tone treatment as the wordmark, so the splash is the mark itself
+   rather than a different-looking placeholder for it. */
+.boot-mark em {
+  font-style: normal;
+  background: linear-gradient(96deg, var(--indigo-deep), var(--indigo) 50%, var(--violet));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.boot p { color: var(--ink-3); margin: 0; font-size: .82rem; }
+
+/* ══════════ shell ══════════ */
+.view { min-height: 100%; padding-bottom: calc(28px + var(--safe-b)); }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.pad { padding: 0 var(--pad); }
+
+.topbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: calc(10px + var(--safe-t)) var(--pad) 12px;
+  position: sticky; top: 0; z-index: 5; background: var(--paper);
+}
+.topbar h1 { font-size: 1.15rem; }
+.back {
+  width: 40px; height: 40px; margin-left: -10px; border-radius: 12px;
+  display: grid; place-content: center; color: var(--ink-2);
+}
+.back svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.back:active { background: var(--paper-2); }
+
+.section-label {
+  padding: 6px var(--pad) 0;
+  font-size: .68rem; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--ink-3); font-weight: 600;
+}
+
+/* ══════════ hero ══════════ */
+.hero {
+  background: linear-gradient(180deg, var(--paper-3) 0%, var(--paper) 100%);
+  border-bottom: 1px solid var(--line);
+  padding: calc(10px + var(--safe-t)) 0 24px;
+  text-align: center;
+}
+/* The picture rail: real paintings from the set, hung on a wire and reshuffled
+   on every visit, so the first thing on screen is what the app is about. */
+.rail { position: relative; height: 96px; margin-bottom: 6px; }
+.rail-wire {
+  position: absolute; left: 6%; right: 6%; top: 14px; height: 2px;
+  background: var(--line-2); border-radius: 2px;
+}
+.rail-wire::before, .rail-wire::after {
+  content: ''; position: absolute; top: -3px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--gold);
+}
+.rail-wire::before { left: -4px; }
+.rail-wire::after { right: -4px; }
+.rail-items {
+  position: absolute; inset: 0; display: flex; align-items: flex-start;
+  justify-content: center; gap: 10px; padding-top: 14px;
+}
+.rail-item { display: flex; flex-direction: column; align-items: center; }
+.rail-hook { width: 1px; height: 8px; background: var(--line-2); }
+.rail-frame {
+  width: 46px; height: 46px; border-radius: 3px; overflow: hidden;
+  border: 2px solid var(--gold); background: var(--paper-2);
+  box-shadow: var(--shadow-sm);
+}
+.rail-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 2.7rem; font-weight: 800; letter-spacing: -1.6px; line-height: 1;
+}
+.wordmark em {
+  font-style: normal;
+  background: linear-gradient(96deg, var(--indigo-deep), var(--indigo) 50%, var(--violet));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.tagline {
+  margin: 10px auto 0; max-width: 30ch;
+  font-size: .89rem; color: var(--ink-2); line-height: 1.45;
+}
+
+/* ══════════ the daily card ══════════ */
+.daily {
+  margin: 0 var(--pad); display: flex; align-items: center; gap: 13px;
+  padding: 13px 15px; text-align: left; width: calc(100% - var(--pad) * 2);
+  background: var(--gold-soft); border: 1px solid var(--gold-line);
+  border-radius: var(--radius);
+}
+.daily:active { filter: brightness(.97); }
+.daily-thumb {
+  width: 46px; height: 46px; flex: none; border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--gold-line); background: var(--paper-2);
+}
+.daily-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.daily-txt { min-width: 0; flex: 1; }
+.daily-kicker {
+  font-size: .62rem; text-transform: uppercase; letter-spacing: 1px;
+  font-weight: 600; color: var(--gold);
+}
+/* Trimmed in JS rather than clamped in CSS: inside a <button> the computed
+   display comes back flow-root, so -webkit-line-clamp silently does nothing. */
+.daily-line {
+  font-family: var(--font-quote); font-size: 1.06rem; line-height: 1.32;
+  margin-top: 3px; color: var(--ink); display: block;
+}
+
+/* ══════════ progress strip ══════════ */
+.progress-strip {
+  margin: 0 var(--pad); display: flex; align-items: center; gap: 16px;
+  padding: 14px 16px; background: var(--paper-2); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow-sm);
+}
+.ring-wrap { position: relative; width: 84px; height: 84px; flex: none; }
+.ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 9; stroke-linecap: round; }
+.ring-bg { stroke: var(--line); }
+.ring-fg {
+  stroke: url(#ringGrad);
+  stroke-dasharray: 236; stroke-dashoffset: 236;
+  transition: stroke-dashoffset .8s cubic-bezier(.2,.7,.3,1);
+}
+.ring-mid { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.ring-num {
+  font-family: var(--font-display); font-size: 1.4rem; font-weight: 800;
+  letter-spacing: -.8px; line-height: 1;
+}
+.ring-num i { font-style: normal; font-size: .72rem; color: var(--ink-3); }
+.ring-lbl {
+  font-size: .58rem; color: var(--ink-3); text-transform: uppercase;
+  letter-spacing: .8px; margin-top: 3px;
+}
+.pstats { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.pstat { display: flex; align-items: baseline; gap: 7px; }
+.pstat b {
+  font-family: var(--font-display); font-size: 1.05rem; font-weight: 700;
+  line-height: 1; font-variant-numeric: tabular-nums; min-width: 1.6em;
+}
+.pstat span { font-size: .78rem; color: var(--ink-2); }
+
+.nudge {
+  margin: 0 var(--pad); width: calc(100% - var(--pad) * 2); text-align: left;
+  padding: 12px 14px; border-radius: 13px; font-size: .84rem;
+  background: var(--paper-3); border: 1px solid var(--line-2); color: var(--ink-2);
+  display: flex; align-items: center; gap: 10px;
+}
+.nudge::before {
+  content: ''; width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: var(--indigo);
+}
+.nudge b { color: var(--ink); font-weight: 600; }
+
+/* ══════════ mode cards ══════════ */
+.modes { display: flex; flex-direction: column; gap: 12px; padding: 0 var(--pad); }
+.mode {
+  display: flex; align-items: center; gap: 14px; text-align: left; width: 100%;
+  padding: 16px; border-radius: var(--radius);
+  background: var(--paper); border: 1.5px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+.mode:active { transform: scale(.985); box-shadow: none; }
+.mode[disabled] { opacity: .5; }
+.mode.primary {
+  background: linear-gradient(135deg, var(--paper-3), #e2e2fb);
+  border-color: #bfbff0; box-shadow: var(--shadow-md);
+}
+[data-theme='dark'] .mode.primary {
+  background: linear-gradient(135deg, #22224a, #2b2b5c); border-color: #3d3d78;
+}
+.mode-ico {
+  width: 46px; height: 46px; flex: none; border-radius: 13px;
+  display: grid; place-content: center;
+  background: var(--paper-3); color: var(--indigo-deep);
+  border: 1px solid var(--line-2);
+}
+.mode.primary .mode-ico {
+  background: linear-gradient(140deg, var(--indigo), var(--violet));
+  color: #fff; border-color: transparent;
+}
+.mode-ico svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mode-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mode-txt b { font-family: var(--font-display); font-size: 1.16rem; font-weight: 700; letter-spacing: -.3px; }
+.mode-txt i { font-style: normal; font-size: .81rem; color: var(--ink-2); line-height: 1.35; }
+.mode-go { flex: none; color: var(--ink-3); font-size: 1.3rem; line-height: 1; }
+.mode.primary .mode-go { color: var(--indigo-deep); }
+
+.modes.small { gap: 9px; }
+.mode.compact { padding: 12px 14px; border-radius: 15px; box-shadow: none; }
+.mode.compact .mode-ico { width: 38px; height: 38px; border-radius: 11px; }
+.mode.compact .mode-ico svg { width: 19px; height: 19px; }
+.mode.compact .mode-txt b { font-size: 1rem; }
+.mode.compact .mode-txt i { font-size: .76rem; }
+
+/* ══════════ tiles ══════════ */
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 var(--pad); }
+.tiles button {
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 14px 8px; border-radius: 15px;
+  background: var(--paper-2); border: 1px solid var(--line);
+  font-size: .78rem; color: var(--ink-2); font-weight: 500;
+}
+.tiles button:active { background: var(--paper-3); }
+.tiles svg { width: 21px; height: 21px; fill: none; stroke: var(--indigo-deep); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ══════════ setup ══════════ */
+.lede { color: var(--ink-2); font-size: .89rem; line-height: 1.5; margin: 0; }
+.group { display: flex; flex-direction: column; gap: 11px; }
+.group legend {
+  font-size: .68rem; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--ink-3); font-weight: 600; padding: 0;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 10px 14px; min-height: 42px; border-radius: 12px;
+  background: var(--paper); border: 1.5px solid var(--line);
+  color: var(--ink-2); font-size: .86rem; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 7px;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.chip[aria-pressed="true"] {
+  background: var(--paper-3); border-color: var(--indigo); color: var(--ink); font-weight: 600;
+}
+.chip .n { font-size: .72rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] .n { color: var(--indigo-deep); }
+
+.switch {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 14px 0; border-bottom: 1px solid var(--line);
+}
+.switch:last-child { border-bottom: 0; }
+.switch b { display: block; font-size: .95rem; font-weight: 600; }
+.switch span { display: block; font-size: .79rem; color: var(--ink-2); margin-top: 2px; }
+.toggle {
+  flex: none; width: 48px; height: 28px; border-radius: 999px;
+  background: var(--line-2); position: relative; transition: background .16s;
+}
+.toggle::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px;
+  border-radius: 50%; background: #fff; transition: transform .16s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.28);
+}
+.toggle[aria-checked="true"] { background: var(--indigo); }
+.toggle[aria-checked="true"]::after { transform: translateX(20px); }
+
+.foot {
+  position: sticky; bottom: 0; display: flex; gap: 10px;
+  padding: 14px var(--pad) calc(14px + var(--safe-b));
+  background: linear-gradient(transparent, var(--paper) 24%);
+}
+.btn-go {
+  height: var(--tap); border-radius: 15px; width: 100%;
+  background: linear-gradient(135deg, var(--indigo-deep), var(--indigo));
+  color: #fff; font-weight: 700; font-size: 1rem;
+  font-family: var(--font-display); letter-spacing: -.2px;
+  box-shadow: 0 4px 14px rgba(74, 78, 207, .32);
+}
+.btn-go:active { filter: brightness(.95); box-shadow: none; }
+.btn-go:disabled { background: var(--line); color: var(--ink-3); box-shadow: none; }
+.btn-alt {
+  height: var(--tap); border-radius: 15px; flex: 1;
+  background: var(--paper); border: 1.5px solid var(--line-2); color: var(--ink);
+  font-size: .95rem; font-weight: 500;
+}
+.btn-alt:active { background: var(--paper-3); }
+.btn-alt.wide { width: 100%; flex: none; }
+.btn-alt.danger { color: var(--bad); border-color: var(--bad-line); }
+.foot.two .btn-go { flex: 1; width: auto; }
+
+/* ══════════ game ══════════ */
+.game { display: flex; flex-direction: column; min-height: 100dvh; }
+.game-head { display: flex; align-items: center; gap: 12px; padding: calc(10px + var(--safe-t)) var(--pad) 0; }
+.qprog { flex: 1; height: 6px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.qprog-fill {
+  height: 100%; width: 0; border-radius: 4px;
+  background: linear-gradient(90deg, var(--violet), var(--indigo));
+  transition: width .3s cubic-bezier(.2,.7,.3,1);
+}
+.qcount {
+  font-size: .78rem; color: var(--ink-3); font-variant-numeric: tabular-nums;
+  min-width: 42px; text-align: right; font-weight: 500;
+}
+.game-meta {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  height: 32px; padding: 0 var(--pad);
+}
+.badge {
+  font-size: .74rem; padding: 4px 11px; border-radius: 20px; font-weight: 600;
+  background: var(--gold-soft); color: var(--gold); border: 1px solid var(--gold-line);
+}
+.badge.bump { animation: badgeBump .34s cubic-bezier(.2,.9,.3,1); }
+@keyframes badgeBump {
+  0% { transform: scale(.8); opacity: .4; }
+  55% { transform: scale(1.12); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.clock {
+  font-size: .82rem; color: var(--ink-3); font-variant-numeric: tabular-nums;
+  font-weight: 500; transition: color .3s, font-weight .3s;
+}
+.clock.low { color: var(--bad); font-weight: 700; }
+
+.stage {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 14px; padding: 4px var(--pad); min-height: 0;
+}
+.ask-line {
+  font-size: .72rem; font-weight: 600; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--ink-3); text-align: center;
+}
+.plate {
+  width: 100%; max-width: 340px; aspect-ratio: 4 / 3;
+  border-radius: 14px; overflow: hidden; background: var(--paper-2);
+  box-shadow: var(--shadow-lg); border: 1px solid var(--line-2);
+  position: relative; animation: pop .26s cubic-bezier(.2,.8,.3,1);
+}
+.plate img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.plate img.lq { filter: blur(12px); transform: scale(1.06); }
+.plate .full { opacity: 0; transition: opacity .35s; }
+.plate .full.in { opacity: 1; }
+.plate.contain img { object-fit: contain; }
+@keyframes pop { from { opacity: 0; transform: scale(.94); } }
+
+.quote {
+  font-family: var(--font-quote); font-size: clamp(1.35rem, 5.8vw, 1.75rem);
+  line-height: 1.34; text-align: center; margin: 0; text-wrap: balance;
+  max-width: 22ch;
+}
+.quote .blank {
+  display: inline-block; min-width: 3.2em; border-bottom: 2px solid var(--indigo);
+}
+.quote .dim { opacity: 0; }
+.prompt-big {
+  font-family: var(--font-display); font-size: clamp(1.7rem, 7.5vw, 2.3rem);
+  font-weight: 800; letter-spacing: -1px; line-height: 1.05; text-align: center;
+  text-wrap: balance;
+}
+.sub-line { font-size: .78rem; color: var(--ink-3); text-align: center; letter-spacing: .3px; }
+
+/* ── the reveal ──────────────────────────────────────────────────────────
+   Appears under the work the moment you answer. It sits in the middle of the
+   screen on purpose: this is what the app is for, and a phone user's eyes are
+   already here, having just looked at the picture. Behind a button at the
+   bottom it went unread. */
+.reveal {
+  width: 100%; max-width: 340px;
+  border-radius: 14px; padding: 13px 15px;
+  background: var(--paper-2); border: 1px solid var(--line);
+  text-align: left; animation: revealIn .3s cubic-bezier(.2,.8,.3,1);
+}
+@keyframes revealIn { from { opacity: 0; transform: translateY(8px); } }
+.reveal-head { display: flex; flex-direction: column; gap: 1px; padding-left: 11px; position: relative; }
+.reveal-head::before {
+  content: ''; position: absolute; left: 0; top: 2px; bottom: 2px;
+  width: 3px; border-radius: 2px; background: var(--good);
+}
+.reveal-head.no::before { background: var(--bad); }
+.reveal-head b { font-family: var(--font-quote); font-size: 1.14rem; line-height: 1.25; font-weight: 600; }
+.reveal-head span { font-size: .74rem; color: var(--ink-3); }
+.reveal-why { margin: 10px 0 0; font-size: .84rem; line-height: 1.5; color: var(--ink-2); }
+.reveal-ref {
+  margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line);
+}
+.reveal-ref b {
+  display: block; font-size: .6rem; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--indigo-deep); margin-bottom: 3px; font-weight: 700;
+}
+.reveal-ref span { display: block; font-size: .8rem; color: var(--ink-2); }
+
+/* The advance is on a clock, so let the button show it draining rather than
+   have the screen change under you without warning. */
+.btn-go.counting { position: relative; overflow: hidden; }
+.btn-go.counting::after {
+  content: ''; position: absolute; left: 0; bottom: 0; height: 3px;
+  width: 100%; background: rgba(255,255,255,.55);
+  transform-origin: left; animation: countdown var(--count, 2s) linear forwards;
+}
+@keyframes countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* the per-question clock, under the prompt */
+.qtimer { width: 100%; max-width: 340px; height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.qtimer i { display: block; height: 100%; width: 100%; background: var(--gold); transform-origin: left; }
+.qtimer.low i { background: var(--bad); }
+
+.choices { display: flex; flex-direction: column; gap: 9px; padding: 12px var(--pad) calc(14px + var(--safe-b)); }
+/* Pinned, not appended. Rendered in flow after four full-width options it sat
+   below the fold on a phone: the right answer lit up but the way forward was
+   off-screen, so the round looked frozen. The options get matching bottom
+   padding while it is up so nothing hides behind it. */
+#verdict {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 6;
+  max-width: 560px; margin: 0 auto;
+}
+.choices.has-verdict { padding-bottom: calc(96px + var(--safe-b)); }
+.opt {
+  min-height: var(--tap); border-radius: 15px; padding: 13px 16px; text-align: left;
+  background: var(--paper); border: 1.5px solid var(--line);
+  font-size: .98rem; box-shadow: var(--shadow-sm);
+  display: flex; align-items: center; gap: 10px;
+  transition: transform .1s ease, background .12s, border-color .12s;
+}
+.opt:active { transform: scale(.99); background: var(--paper-2); }
+.opt.right { background: var(--good-bg); border-color: var(--good-line); color: var(--good); font-weight: 700; }
+.opt.wrong { background: var(--bad-bg); border-color: var(--bad-line); color: var(--bad); }
+.opt.muted { opacity: .45; box-shadow: none; }
+/* Collapsed rather than hidden, so the row shrinks smoothly and the answers
+   that matter rise into view instead of the layout jumping. */
+.opt.gone {
+  min-height: 0; height: 0; padding-top: 0; padding-bottom: 0;
+  opacity: 0; border-width: 0; box-shadow: none; overflow: hidden;
+  transition: height .28s ease, opacity .18s ease, padding .28s ease;
+}
+
+/* chronology */
+.order-list { display: flex; flex-direction: column; gap: 9px; width: 100%; }
+.order-item {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 11px 13px; border-radius: 15px;
+  background: var(--paper); border: 1.5px solid var(--line); box-shadow: var(--shadow-sm);
+}
+.order-item .pick {
+  width: 27px; height: 27px; flex: none; border-radius: 50%;
+  border: 1.5px solid var(--line-2); display: grid; place-content: center;
+  font-size: .8rem; font-weight: 700; font-family: var(--font-display);
+}
+.order-item.picked .pick { background: var(--indigo); color: #fff; border-color: var(--indigo); }
+.order-item.right { border-color: var(--good-line); background: var(--good-bg); }
+.order-item.wrong { border-color: var(--bad-line); background: var(--bad-bg); }
+.order-item .otxt { flex: 1; min-width: 0; }
+.order-item b { display: block; font-size: .92rem; font-weight: 600; }
+.order-item span { display: block; font-size: .76rem; color: var(--ink-3); }
+.order-thumb { width: 40px; height: 40px; flex: none; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
+.order-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* verdict wash — only after the answer is locked, so it cannot tint judgment */
+.game::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; opacity: 0; z-index: 2;
+  background: radial-gradient(circle at 50% 45%, currentColor, transparent 68%);
+}
+.game.flash-good::before { color: rgba(28,139,78,.22); animation: wash .46s ease-out; }
+.game.flash-bad::before { color: rgba(209,54,44,.22); animation: wash .46s ease-out; }
+@keyframes wash { 0% { opacity: 0 } 22% { opacity: 1 } 100% { opacity: 0 } }
+@keyframes shake { 0%,100% { transform: translateX(0) } 22% { transform: translateX(-6px) } 60% { transform: translateX(5px) } }
+.shake { animation: shake .32s ease-out; }
+
+/* ══════════ the card ══════════ */
+.sheet {
+  position: fixed; inset: 0; z-index: 40; background: rgba(10,10,24,.5);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: fade .18s ease-out;
+}
+@keyframes fade { from { opacity: 0 } }
+.sheet-inner {
+  background: var(--paper); width: 100%; max-width: 560px;
+  border-radius: 22px 22px 0 0; padding: 22px var(--pad) calc(22px + var(--safe-b));
+  max-height: 88dvh; overflow-y: auto; position: relative;
+  animation: rise .24s cubic-bezier(.2,.8,.3,1);
+}
+@keyframes rise { from { transform: translateY(22px) } }
+.sheet-close {
+  position: absolute; top: 14px; right: 14px; width: 34px; height: 34px;
+  background: var(--paper-2); border: 1px solid var(--line); border-radius: 50%;
+  font-size: 1.2rem; line-height: 1; color: var(--ink-2);
+}
+.card-plate {
+  border-radius: 12px; overflow: hidden; margin-bottom: 16px; background: var(--paper-2);
+  max-height: 38dvh; display: flex; justify-content: center;
+}
+.card-plate img { max-width: 100%; max-height: 38dvh; width: auto; display: block; }
+.card-title { font-family: var(--font-quote); font-size: 1.6rem; line-height: 1.2; margin: 0 0 4px; font-weight: 600; }
+.card-sub { font-size: .82rem; color: var(--ink-3); margin: 0 0 16px; }
+.card-quote {
+  font-family: var(--font-quote); font-size: 1.25rem; line-height: 1.38; margin: 0;
+  border-left: 2px solid var(--indigo); padding-left: 15px;
+}
+.card-quote .cont { color: var(--ink-3); }
+.card-why { font-size: .92rem; line-height: 1.55; color: var(--ink-2); margin: 16px 0 0; }
+.card-ref { margin-top: 16px; padding: 13px 15px; border-radius: 13px; background: var(--paper-2); border: 1px solid var(--line); }
+.card-ref b {
+  display: block; font-size: .62rem; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--indigo-deep); margin-bottom: 7px;
+}
+.card-ref ul { margin: 0; padding-left: 18px; }
+.card-ref li { font-size: .88rem; margin: 4px 0; }
+.card-meta {
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line);
+  font-size: .72rem; color: var(--ink-3); line-height: 1.6;
+}
+.card-meta b { color: var(--ink-2); font-weight: 600; }
+
+/* ══════════ results ══════════ */
+.score-big { text-align: center; padding: 18px 0 22px; }
+.score-big b {
+  font-family: var(--font-display); font-size: 3.4rem; font-weight: 800;
+  letter-spacing: -2px; line-height: 1; display: block;
+}
+.score-big span { color: var(--ink-2); font-size: .86rem; }
+.miss-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 12px 0; border-bottom: 1px solid var(--line);
+}
+.miss-row:last-child { border-bottom: 0; }
+.miss-thumb { width: 46px; height: 46px; flex: none; border-radius: 9px; overflow: hidden; background: var(--paper-2); border: 1px solid var(--line); }
+.miss-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.miss-txt { min-width: 0; }
+.miss-txt b { display: block; font-size: .92rem; font-weight: 600; }
+.miss-txt span { display: block; font-size: .78rem; color: var(--ink-3); }
+.miss-txt .said { color: var(--bad); }
+
+/* ══════════ progress ══════════ */
+.meter { height: 9px; background: var(--line); border-radius: 5px; overflow: hidden; display: flex; }
+.meter i { display: block; height: 100%; }
+.legend { display: flex; gap: 14px; margin-top: 10px; font-size: .76rem; color: var(--ink-2); flex-wrap: wrap; }
+.legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 6px; }
+.block { margin-bottom: 26px; }
+.block h2 { font-size: 1rem; margin-bottom: 11px; }
+.pair {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 14px;
+  margin-bottom: 8px; background: var(--paper); font-size: .88rem;
+}
+.pair b { font-weight: 600; }
+.pair .arrow { color: var(--ink-3); }
+.pair .count { margin-left: auto; font-size: .76rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.empty { color: var(--ink-2); font-size: .86rem; line-height: 1.5; margin: 0 0 10px; }
+
+/* ══════════ library ══════════ */
+.seg { display: flex; gap: 4px; background: var(--paper-2); padding: 4px; border-radius: 14px; margin-bottom: 12px; border: 1px solid var(--line); }
+.seg button { flex: 1; padding: 10px; border-radius: 11px; font-size: .84rem; color: var(--ink-2); }
+.seg button[aria-selected="true"] { background: var(--paper); color: var(--ink); font-weight: 600; box-shadow: var(--shadow-sm); }
+.search {
+  width: 100%; padding: 13px 15px; border-radius: 14px; border: 1.5px solid var(--line);
+  background: var(--paper); color: var(--ink); font: inherit; font-size: .95rem; margin-bottom: 12px;
+}
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+.tile-art { border-radius: 12px; overflow: hidden; background: var(--paper-2); border: 1px solid var(--line); display: flex; flex-direction: column; }
+.tile-art img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.tile-art span {
+  display: block; padding: 7px 8px 9px; font-size: .7rem; line-height: 1.3;
+  color: var(--ink-2); text-align: left; height: 3.9em; overflow: hidden;
+}
+.line-row { padding: 14px 0; border-bottom: 1px solid var(--line); width: 100%; text-align: left; }
+.line-row p { font-family: var(--font-quote); font-size: 1.05rem; margin: 0 0 4px; line-height: 1.3; }
+.line-row span { font-size: .76rem; color: var(--ink-3); }
+
+/* ══════════ toast ══════════ */
+.toast {
+  position: fixed; left: 50%; bottom: calc(28px + var(--safe-b)); transform: translateX(-50%);
+  background: var(--ink); color: var(--paper); padding: 12px 18px; border-radius: 999px;
+  font-size: .84rem; z-index: 70; box-shadow: var(--shadow-lg); max-width: 86vw; text-align: center;
+}
+
+@media (min-width: 620px) {
+  .view { max-width: 560px; margin: 0 auto; }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "Commonplace",
+  "short_name": "Commonplace",
+  "description": "A commonplace book that asks questions back — paintings, Shakespeare, and the references they left behind.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fbf8f3",
+  "theme_color": "#fbf8f3",
+  "categories": ["education", "games", "books"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

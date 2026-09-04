@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="description" content="Paintings, Shakespeare, and the references they left behind.">
+<title>Commonplace</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- The gradient the mastery ring is stroked with. One definition, reused. -->
+<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+  <defs>
+    <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2f2f9e"/>
+      <stop offset="60%" stop-color="#4a4ecf"/>
+      <stop offset="100%" stop-color="#7d80f2"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div id="boot" class="boot"><span class="boot-mark">Common<em>place</em></span><p>Opening the book…</p></div>
+
+<!-- ── home ──────────────────────────────────────────────────────────── -->
+<section id="view-home" class="view" hidden>
+  <header class="hero">
+    <div class="rail" id="rail"></div>
+    <div class="wordmark">Common<em>place</em></div>
+    <p class="tagline">Paintings, Shakespeare, and the references they left behind.</p>
+  </header>
+
+  <div class="stack" style="margin-top:18px">
+    <button class="daily" id="daily"></button>
+    <div id="progress-strip"></div>
+    <div id="nudge-slot"></div>
+    <div class="modes" id="modes-main"></div>
+    <div>
+      <div class="section-label">More ways to play</div>
+      <div class="modes small" id="modes-more" style="margin-top:9px"></div>
+    </div>
+    <div class="tiles" id="tiles"></div>
+  </div>
+</section>
+
+<!-- ── setup ─────────────────────────────────────────────────────────── -->
+<section id="view-setup" class="view" hidden>
+  <header class="topbar">
+    <button class="back" data-go="home" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h1 id="setup-title">Setup</h1>
+  </header>
+  <div class="pad stack" id="setup-body"></div>
+  <div class="foot"><button id="start" class="btn-go">Begin</button></div>
+</section>
+
+<!-- ── game ──────────────────────────────────────────────────────────── -->
+<section id="view-game" class="view game" hidden>
+  <header class="game-head">
+    <button class="back" id="quit" aria-label="End round"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="qprog"><div class="qprog-fill" id="qprog"></div></div>
+    <div class="qcount" id="qcount">1/12</div>
+  </header>
+  <div class="game-meta">
+    <span class="badge" id="streak" hidden></span>
+    <span class="clock" id="clock" hidden></span>
+  </div>
+  <div id="stage" class="stage"></div>
+  <div id="choices" class="choices"></div>
+  <div id="verdict" hidden></div>
+</section>
+
+<!-- ── results ───────────────────────────────────────────────────────── -->
+<section id="view-results" class="view" hidden>
+  <header class="topbar">
+    <button class="back" data-go="home" aria-label="Home"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h1>Round</h1>
+  </header>
+  <div class="pad" id="results-body"></div>
+  <div class="foot two">
+    <button id="again" class="btn-alt">Again</button>
+    <button data-go="home" class="btn-go">Done</button>
+  </div>
+</section>
+
+<!-- ── progress ──────────────────────────────────────────────────────── -->
+<section id="view-progress" class="view" hidden>
+  <header class="topbar">
+    <button class="back" data-go="home" aria-label="Home"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h1>Progress</h1>
+  </header>
+  <div class="pad" id="progress-body"></div>
+</section>
+
+<!-- ── library ───────────────────────────────────────────────────────── -->
+<section id="view-browse" class="view" hidden>
+  <header class="topbar">
+    <button class="back" data-go="home" aria-label="Home"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h1>Library</h1>
+  </header>
+  <div class="pad">
+    <div class="seg" id="browse-seg" role="tablist">
+      <button data-tab="art" role="tab" aria-selected="true">Paintings</button>
+      <button data-tab="text" role="tab" aria-selected="false">Lines</button>
+      <button data-tab="refs" role="tab" aria-selected="false">References</button>
+    </div>
+    <input id="browse-q" class="search" type="search" placeholder="Search" autocomplete="off">
+  </div>
+  <div id="browse-body" class="pad"></div>
+</section>
+
+<!-- ── settings ──────────────────────────────────────────────────────── -->
+<section id="view-settings" class="view" hidden>
+  <header class="topbar">
+    <button class="back" data-go="home" aria-label="Home"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h1>Settings</h1>
+  </header>
+  <div class="pad" id="settings-body"></div>
+</section>
+
+<!-- ── the card ──────────────────────────────────────────────────────── -->
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-inner" role="dialog" aria-modal="true">
+    <button id="sheet-close" class="sheet-close" aria-label="Close">×</button>
+    <div id="sheet-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
