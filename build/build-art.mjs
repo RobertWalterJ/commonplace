@@ -10,9 +10,11 @@
       are not in the app. Wikidata's own image is not proof of anything, so the
       creator's death date is the test.
 
-   2. Tiering. Sitelink count is a decent fame proxy for paintings — much better
-      than population was for flags in Halyard — but it still over-rates what
-      Wikipedia editors like. TIER1 in curated/paintings.mjs overrides it.
+   2. Tiering. All three tiers are curated by cultural canonicity in
+      curated/tiers.mjs. Sitelink count — the first attempt — measures what
+      Wikipedia editors write about, which put Caravaggio's Judith and Dürer's
+      self-portrait in "obscure" while promoting three minor Leonardo Madonnas.
+      It survives only as the ordering for the unlisted remainder.
 
    3. Distractors. A wrong answer is only useful if you could plausibly have
       given it. Every work gets a ranked list of near neighbours: another canvas
@@ -25,6 +27,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TIER1, NOTES, REFS, CONFUSABLE, EXCLUDE } from './curated/paintings.mjs';
 import { NOTES_MORE, REFS_MORE } from './curated/painting-notes.mjs';
+import { TIER_1, TIER_2 } from './curated/tiers.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(ROOT, 'sources', 'wikidata-paintings.json');
@@ -32,7 +35,10 @@ const SRC = join(ROOT, 'sources', 'wikidata-paintings.json');
 // 70 years after the author's death is the common term; 2026 - 70 = 1956, so a
 // creator who died in 1955 or earlier is safe everywhere that rule applies.
 const PD_DEATH_BEFORE = 1956;
-const SHIP_TARGET = 170;
+/* Raised from 170 once the tiers were curated. Tiers 1 and 2 together are about
+   160 works, so the old cap left the specialist tier with a dozen entries — the
+   obscure end of the game had nothing in it. */
+const SHIP_TARGET = 240;
 
 const raw = JSON.parse(readFileSync(SRC, 'utf8'));
 
@@ -86,25 +92,47 @@ const clean = [...byQid.values()].filter((r) => {
 });
 
 // ── tiering and selection ─────────────────────────────────────────────────
-const tier1Keys = new Set(TIER1.map(([t, a]) => key(t, a)));
-const matchedTier1 = new Set();
-for (const r of clean) {
-  const k = key(r.title, r.creator);
-  if (tier1Keys.has(k)) matchedTier1.add(k);
+/* All three tiers are assigned by hand now — see curated/tiers.mjs for why
+   sitelink count was the wrong instrument. A key is either a bare title or
+   "Title|Artist" where the title alone is ambiguous in the data. */
+function tierIndex(list) {
+  const byTitle = new Map();
+  const byBoth = new Map();
+  for (const entry of list) {
+    const [t, a] = entry.split('|');
+    if (a) byBoth.set(key(t, a), entry);
+    else byTitle.set(norm(t), entry);
+  }
+  return { byTitle, byBoth };
 }
-const missingTier1 = TIER1.filter(([t, a]) => !matchedTier1.has(key(t, a)));
+const T1 = tierIndex(TIER_1);
+const T2 = tierIndex(TIER_2);
+const hitTier = (idx, r) =>
+  idx.byBoth.get(key(r.title, r.creator)) || idx.byTitle.get(norm(r.title)) || null;
 
-const scored = clean.map((r) => ({
-  ...r,
-  tier: tier1Keys.has(key(r.title, r.creator)) ? 1 : r.sitelinks >= 30 ? 2 : 3,
-}));
+const usedTierKeys = new Set();
+const tierOf = (r) => {
+  const one = hitTier(T1, r);
+  if (one) { usedTierKeys.add(one); return 1; }
+  const two = hitTier(T2, r);
+  if (two) { usedTierKeys.add(two); return 2; }
+  return 3;
+};
+
+const scored = clean.map((r) => ({ ...r, tier: tierOf(r) }));
+
+// A curated key matching nothing shipped is a typo, and must be loud.
+const missingTier1 = [...TIER_1, ...TIER_2]
+  .filter((k) => !usedTierKeys.has(k))
+  .map((k) => k.split('|'));
 
 /* Ship every curated tier 1, then fill up to the target with the best-linked of
    the rest. A hard cap matters: these are photographs of paintings and the
    whole app has to fit on a phone. */
 const ship = [
   ...scored.filter((r) => r.tier === 1),
-  ...scored.filter((r) => r.tier !== 1).sort((a, b) => b.sitelinks - a.sitelinks),
+  ...scored.filter((r) => r.tier === 2),
+  ...scored.filter((r) => r.tier === 3).sort((a, b) => b.sitelinks - a.sitelinks),
 ].slice(0, SHIP_TARGET);
 
 // ── distractors ───────────────────────────────────────────────────────────
@@ -216,7 +244,7 @@ console.log('with a note     :', items.filter((i) => i.why).length,
   '| with a reference:', items.filter((i) => i.ref).length);
 console.log('with a year     :', items.filter((i) => i.year).length);
 if (missingTier1.length) {
-  console.log('\nCURATED TIER 1 NOT FOUND IN THE DATA — fix the title or artist:');
+  console.log('\nCURATED TIER KEYS MATCHING NOTHING SHIPPED — fix the title or artist:');
   missingTier1.forEach(([t, a]) => console.log(`   ! ${t} — ${a}`));
 }
 const orphanNotes = Object.keys(ALL_NOTES).filter((k) => !items.some((i) => i.title === k || `${i.title}|${i.artist}` === k));

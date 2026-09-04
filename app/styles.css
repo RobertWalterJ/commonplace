@@ -237,6 +237,10 @@ h1, h2 { margin: 0; font-family: var(--font-display); font-weight: 700; letter-s
 }
 /* Trimmed in JS rather than clamped in CSS: inside a <button> the computed
    display comes back flow-root, so -webkit-line-clamp silently does nothing. */
+.daily-cite {
+  display: block; margin-top: 3px; font-size: .72rem; color: var(--ink-2);
+  font-weight: 500;
+}
 .daily-line {
   font-family: var(--font-quote); font-size: 1.06rem; line-height: 1.32;
   margin-top: 3px; color: var(--ink); display: block;

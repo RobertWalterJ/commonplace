@@ -48,7 +48,7 @@
 
   const DEFAULTS = {
     scope: ['art', 'text'],
-    tiers: [1, 2, 3],
+    tiers: [1],            // start on the foundational core, not the whole collection
     length: 12,
     theme: null,          // null = follow the device until the toggle is used
     sound: true,
@@ -710,9 +710,16 @@
     const item = pickDaily();
     const thumb = item.kind === 'art'
       ? `<span class="daily-thumb"><img src="${thumbSrc(item)}" alt=""></span>` : '';
+    /* Always name the source. A quotation with no attribution is a fridge
+       magnet; the whole point of the card is knowing where the thing comes
+       from, and that should be legible before you tap it. */
+    const source = item.kind === 'art'
+      ? [item.artist, yearLabel(item)].filter(Boolean).join(' · ')
+      : [item.cite, item.speaker].filter(Boolean).join(' · ');
     $('#daily').innerHTML = `${thumb}<span class="daily-txt">
       <span class="daily-kicker">Reference of the day</span>
-      <span class="daily-line">${esc(snippet(item.kind === 'art' ? item.title : item.text.join(' '), 62))}</span>
+      <span class="daily-line">${esc(snippet(item.kind === 'art' ? item.title : item.text.join(' '), 58))}</span>
+      <span class="daily-cite">${esc(source)}</span>
     </span>`;
     $('#daily').onclick = () => { SFX.tap(); openCard(item); };
 
@@ -793,9 +800,9 @@
     }
     if (m.domain === 'art' || ((m.domain === 'mixed' || m.domain === 'ref') && st.scope.includes('art'))) {
       html += group('How far in',
-        chip('1', 'Core', st.tiers.includes(1))
-        + chip('2', 'Wider', st.tiers.includes(2))
-        + chip('3', 'Deep', st.tiers.includes(3)), 'tiers');
+        chip('1', 'Foundational', st.tiers.includes(1))
+        + chip('2', 'Well read', st.tiers.includes(2))
+        + chip('3', 'Specialist', st.tiers.includes(3)), 'tiers');
     }
     html += group('Length', [8, 12, 20, 30].map((n) => chip(String(n), String(n), st.length === n)).join(''), 'length');
     if (m.id === 'eye' || m.id === 'cadence') {
