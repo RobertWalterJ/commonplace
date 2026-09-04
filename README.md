@@ -32,6 +32,17 @@ Nothing in this app writes a quotation or a fact. It only locates one.
   `By any other word would smell as sweet`, not *name*. The corpus wins, every
   time.
 
+  **The unit is the sentence, not the printed line** (`build/locate.mjs`). A
+  printed line is a typesetting decision, and extracting by line produced
+  quotations cut at both ends: `Let me see. Alas, poor Yorick! I knew him,
+  Horatio--a fellow of infinite`. That last one was the worst failure the app
+  could have — the word *jest* fell off, so the item carrying the *Infinite
+  Jest* reference did not visibly contain the phrase the novel is named after.
+  Matches now expand to sentence boundaries and are then cut back into the
+  edition's lines, so verse keeps its lineation and prose does not break where
+  the measure ran out. Sentences too long to read on a phone fall back to clause
+  breaks, then to printed lines.
+
 * **Paintings.** Titles, artists, dates, movements and collections come from
   Wikidata; images from Wikimedia Commons. `build/curated/paintings.mjs` only
   decides which works matter most and what is worth saying about them, and every
@@ -142,6 +153,12 @@ Worth knowing before changing anything.
   away.
 * **`requestIdleCallback` pulled off `window` throws.** It did so synchronously
   inside a view switch, so the library rendered and then never appeared.
+* **Sentence-level extraction can collide.** Once matches expand to sentences,
+  two curated fragments in the same sentence produce the same quotation twice —
+  "there's the rub", "what dreams may come" and "shuffled off this mortal coil"
+  are one sentence of Hamlet. The build merges them into a single item that
+  carries every derivative and idiom the sentence produced, and reports each
+  merge rather than doing it silently.
 
 ## Sources and terms
 

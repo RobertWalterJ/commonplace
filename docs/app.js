@@ -28,7 +28,7 @@
 
   // Stamped at deploy time by build/make-deploy.mjs. Left as the placeholder
   // when running from app/, so Settings can honestly say "dev".
-  const BUILD = "2026-09-04 13:25";
+  const BUILD = "2026-09-04 14:52 · ca6792c";
 
   /* The single-file build (build/bundle-artifact.mjs) inlines its data and its
      paintings as data URIs and has no server behind it. That changes three
@@ -155,6 +155,9 @@
   };
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  /* Older saved data and the art half use a single `idiom`; the text half now
+     carries a list, because one sentence of Hamlet gave English three phrases. */
+  const idiomsOf = (item) => (item.idioms || (item.idiom ? [item.idiom] : []));
   const snippet = (s, n) => (s.length <= n ? s : s.slice(0, s.lastIndexOf(' ', n)) + '…');
   const yearLabel = (item) => {
     if (!item.year) return '';
@@ -1086,8 +1089,9 @@
     const ref = item.ref && item.ref.length
       ? `<div class="reveal-ref"><b>Where you have met it</b>${item.ref.map((r) =>
           `<span>${esc(r.what)}${r.by ? ` — ${esc(r.by)}` : ''}${r.year ? `, ${r.year}` : ''}</span>`).join('')}</div>`
-      : item.idiom
-        ? `<div class="reveal-ref"><b>It gave English</b><span>“${esc(item.idiom)}”</span></div>`
+      : idiomsOf(item).length
+        ? `<div class="reveal-ref"><b>It gave English</b>${idiomsOf(item).map((d) =>
+            `<span>“${esc(d)}”</span>`).join('')}</div>`
         : '';
 
     el.innerHTML = `<div class="reveal-head ${ok ? 'ok' : 'no'}">${head}</div>
@@ -1129,7 +1133,7 @@
     clearTimeout(showVerdict._h);
     if (store.settings.auto) {
       // A card with a note to read earns more time than a bare attribution.
-      const hasReading = !!(q.item && (q.item.why || q.item.ref || q.item.idiom));
+      const hasReading = !!(q.item && (q.item.why || q.item.ref || idiomsOf(q.item).length));
       const wait = (ok ? AFTER_RIGHT_MS : AFTER_WRONG_MS) + (hasReading ? READ_BONUS_MS : 0);
       const nextBtn = $('#v-next');
       // Make the pacing visible rather than something that just happens to you.
@@ -1351,8 +1355,9 @@
           ? ` <span style="color:var(--ink-3)">— ${esc([r.by, r.kind, r.year].filter(Boolean).join(', '))}</span>` : ''}</li>`
       ).join('')}</ul></div>`;
     }
-    if (item.idiom) {
-      html += `<div class="card-ref"><b>It gave English</b><ul><li>“${esc(item.idiom)}”</li></ul></div>`;
+    if (idiomsOf(item).length) {
+      html += `<div class="card-ref"><b>It gave English</b><ul>${idiomsOf(item).map((d) =>
+        `<li>“${esc(d)}”</li>`).join('')}</ul></div>`;
     }
     const bits = facetsFor(item, { facets: null }).map((f) => {
       const r = store.facets[fkey(item.id, f)];
@@ -1432,11 +1437,11 @@
         <p>${esc(i.text.join(' '))}</p>
         <span>${esc(i.cite)}${i.speaker ? ` · ${esc(i.speaker)}` : ''}</span></button>`).join('');
     } else {
-      const list = [...ART.items, ...TEXT.items].filter((i) => i.ref || i.idiom);
+      const list = [...ART.items, ...TEXT.items].filter((i) => i.ref || idiomsOf(i).length);
       html = list.filter((i) => hit(i.title || i.cite)
-        || (i.ref || []).some((r) => hit(r.what)) || hit(i.idiom || ''))
+        || (i.ref || []).some((r) => hit(r.what)) || idiomsOf(i).some(hit))
         .map((i) => `<button class="line-row" data-id="${i.id}">
-          <p>${esc((i.ref || []).map((r) => r.what).join(' · ') || `“${i.idiom}”`)}</p>
+          <p>${esc((i.ref || []).map((r) => r.what).join(' · ') || idiomsOf(i).map((d) => `“${d}”`).join(' · '))}</p>
           <span>${esc(i.kind === 'art' ? `${i.title} — ${i.artist}` : i.cite)}</span></button>`).join('');
     }
     $('#browse-body').innerHTML = html || `<p class="empty">Nothing matches “${esc(q)}”.</p>`;

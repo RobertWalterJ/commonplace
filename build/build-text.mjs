@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { WORKS } from './fetch-shakespeare.mjs';
 import { LINES, SONNETS } from './curated/shakespeare-lines.mjs';
 import { LINES_MORE, REF_PATCH } from './curated/shakespeare-lines-2.mjs';
+import { locate as locateIn } from './locate.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(ROOT, 'sources', 'folger');
@@ -203,40 +204,9 @@ function parseSonnets(raw) {
 }
 
 // ── locating a fragment ───────────────────────────────────────────────────
-/* Find `fragment` inside a speech and return the printed lines that span it,
-   plus up to three lines of what follows — the answer card reads much better
-   when the quotation does not stop dead at the famous part. */
-export function locate(speech, fragment) {
-  const flat = speech.lines.join(' ');
-  const starts = [];
-  let acc = 0;
-  for (const l of speech.lines) { starts.push(acc); acc += l.length + 1; }
-
-  const { norm, map } = normalizeWithMap(flat);
-  let from = 0;
-  for (;;) {
-    const idx = norm.indexOf(fragment, from);
-    if (idx < 0) return null;
-    const boundedLeft = idx === 0 || norm[idx - 1] === ' ';
-    const end = idx + fragment.length;
-    const boundedRight = end === norm.length || norm[end] === ' ';
-    if (boundedLeft && boundedRight) {
-      const flatStart = map[idx];
-      const flatEnd = map[end - 1];
-      const lineOf = (off) => {
-        let k = 0;
-        while (k + 1 < starts.length && starts[k + 1] <= off) k++;
-        return k;
-      };
-      const a = lineOf(flatStart), b = lineOf(flatEnd);
-      return {
-        text: speech.lines.slice(a, b + 1),
-        after: speech.lines.slice(b + 1, b + 4),
-      };
-    }
-    from = idx + 1;
-  }
-}
+// Lives in build/locate.mjs — see the note there on why the unit is the
+// sentence and not the printed line.
+const locate = (speech, fragment) => locateIn(speech, fragment, normalizeWithMap);
 
 // ── build ─────────────────────────────────────────────────────────────────
 const plays = new Map();
@@ -295,7 +265,7 @@ for (const entry of ALL_LINES) {
     year: YEARS[entry.work] || null,
     why: entry.why || '',
     ref: entry.ref || null,
-    idiom: entry.idiom || null,
+    idioms: entry.idiom ? [entry.idiom] : [],
     source: 'Folger Shakespeare Library',
   });
 }
@@ -321,7 +291,7 @@ for (const entry of SONNETS) {
     year: 1609,
     why: entry.why || '',
     ref: entry.ref || null,
-    idiom: entry.idiom || null,
+    idioms: entry.idiom ? [entry.idiom] : [],
     source: 'Folger Shakespeare Library',
   });
 }
@@ -336,6 +306,30 @@ function titleCase(s) {
 /* The play list the app offers as wrong answers. Only works that actually
    appear as an answer somewhere, plus enough near neighbours of the same genre
    that a four-way choice is never trivially solvable by elimination. */
+/* Extracting by sentence means two curated fragments can land inside the same
+   sentence and produce the same quotation twice — "there's the rub", "what
+   dreams may come" and "shuffled off this mortal coil" are all one sentence of
+   Hamlet. Ship it once, carrying everything that came out of it. The entry with
+   a derivative wins as primary, because that is the most valuable thing on the
+   card; refs and idioms from the others accumulate onto it. */
+const byQuote = new Map();
+const mergedAway = [];
+for (const it of items) {
+  const key = `${it.workSlug}|${normalize(it.text.join(' '))}`;
+  const prev = byQuote.get(key);
+  if (!prev) { byQuote.set(key, it); continue; }
+  const [keep, drop] = (!prev.ref && it.ref) ? [it, prev] : [prev, it];
+  if (drop.ref) {
+    keep.ref = [...(keep.ref || []), ...drop.ref.filter((r) => !(keep.ref || []).some((k) => k.what === r.what))];
+  }
+  for (const id of drop.idioms) if (!keep.idioms.includes(id)) keep.idioms.push(id);
+  byQuote.set(key, keep);
+  mergedAway.push(`${keep.cite}: ${drop.idioms.join(', ') || drop.id} folded into ${keep.id}`);
+}
+const deduped = [...byQuote.values()];
+items.length = 0;
+items.push(...deduped);
+
 const used = new Set(items.filter((i) => i.kind === 'line').map((i) => i.workSlug));
 const works = WORKS
   .filter(([slug, , genre]) => genre !== 'poem')
@@ -381,7 +375,11 @@ const byWork = {};
 items.forEach((i) => { byWork[i.work] = (byWork[i.work] || 0) + 1; });
 console.log(`parsed  : ${plays.size} plays + ${sonnetText.size} sonnets`);
 console.log(`located : ${items.length} of ${ALL_LINES.filter((l) => !l.skipIfDuplicate).length + SONNETS.length} curated fragments`);
-console.log(`refs    : ${items.filter((i) => i.ref).length} with a derivative title, ${items.filter((i) => i.idiom).length} with an idiom`);
+console.log(`refs    : ${items.filter((i) => i.ref).length} with a derivative title, ${items.filter((i) => i.idioms.length).length} with an idiom`);
+if (mergedAway.length) {
+  console.log(`merged  : ${mergedAway.length} duplicate quotation(s) — same sentence located twice`);
+  mergedAway.forEach((m) => console.log('   ·', m));
+}
 if (missing.length) {
   console.log(`\nNOT FOUND — these were dropped, fix the fragment:`);
   missing.forEach((m) => console.log('   !', m));
