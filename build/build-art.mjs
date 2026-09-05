@@ -196,6 +196,20 @@ for (const a of artists.values()) {
 // The second-pass notes are merged over the first so a title present in both
 // resolves to the later, longer note rather than silently keeping the old one.
 const ALL_NOTES = Object.assign({}, NOTES, NOTES_MORE);
+/* A borrowing that repeats its source's name cannot be a question: the answer
+   is printed in the prompt. Nat King Cole's "Mona Lisa" and Tracy Chevalier's
+   "Girl with a Pearl Earring" are real borrowings and belong on the card, but
+   asking which painting they came from tests reading, not knowledge. They are
+   flagged here and the app keeps them on the card while excluding them from
+   question generation. */
+const distinctive = (s) => new Set(
+  String(s || '').toLowerCase().replace(/[^a-z ]+/g, ' ').split(/\s+/).filter((w) => w.length > 3));
+function isGiveaway(what, sourceName) {
+  const b = distinctive(sourceName);
+  for (const w of distinctive(what)) if (b.has(w)) return true;
+  return false;
+}
+
 const noteFor = (w) => ALL_NOTES[w.title] || ALL_NOTES[`${w.title}|${w.creator}`] || '';
 const ALL_REFS = Object.assign({}, REFS, REFS_MORE);
 const refFor = (w) => ALL_REFS[w.title] || ALL_REFS[`${w.title}|${w.creator}`] || null;
@@ -217,7 +231,8 @@ const items = ship.map((w) => ({
   img: `${w.qid}.webp`,
   file: w.image,                    // the Commons filename, for fetch-images
   why: noteFor(w),
-  ref: refFor(w),
+  ref: (refFor(w) || null) && refFor(w).map((r) => (
+    isGiveaway(r.what, `${w.title} ${w.creator}`) ? { ...r, giveaway: true } : r)),
   source: 'Wikidata / Wikimedia Commons',
 }));
 

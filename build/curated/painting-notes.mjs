@@ -116,7 +116,7 @@ export const REFS_MORE = {
     { what: 'Rum Sodomy & the Lash', kind: 'album cover', by: 'The Pogues', year: 1985 }],
   'Ophelia': [
     { what: 'Melancholia', kind: 'film', by: 'Lars von Trier', year: 2011 }],
-  'The Birth of Venus': [
+  'The Birth of Venus|Sandro Botticelli': [
     { what: 'The Adventures of Baron Munchausen', kind: 'film', year: 1988 },
     { what: "Italy's 10-cent euro coin", kind: 'coin', year: 2002, notATitle: true }],
   'Grande Odalisque': [

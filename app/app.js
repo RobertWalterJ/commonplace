@@ -95,9 +95,9 @@
     },
     provenance: {
       id: 'provenance', label: 'Provenance', glyph: 'P',
-      blurb: 'Titles and what they quote', domain: 'ref', facets: ['ref'],
+      blurb: 'Name the source of a borrowed title', domain: 'ref', facets: ['ref'],
       timed: false,
-      lede: 'Where the title came from. A novel, a film, an album cover, an emoji — and the thing it was quoting.',
+      lede: 'A novel, a film, an album cover, an emoji. Name the work it took its name from — the words themselves are not on screen, so it only works if you know.',
     },
     sequence: {
       id: 'sequence', label: 'Sequence', glyph: 'S',
@@ -512,44 +512,53 @@
      recital at a ceremony. They belong on the card, but "which of these took
      its name from this?" cannot offer them as an option, so questions are built
      only from the ones that name something. */
-  const titledRefs = (item) => (item.ref || []).filter((r) => !r.notATitle);
+  /* A reference is usable as a question only if it names something and does not
+     repeat its source's own name. Both kinds still appear on the answer card. */
+  const titledRefs = (item) => (item.ref || []).filter((r) => !r.notATitle && !r.giveaway);
 
+  /* One direction only, and the source's own words never appear.
+
+     The first version asked this two ways and both were broken. Forwards, it
+     offered the source text as an option — so "Rosencrantz and Guildenstern Are
+     Dead" could be matched to the line containing those exact words with no
+     knowledge at all, because almost every borrowed title is a verbatim lift.
+     Backwards was the same trick reversed. And both mixed paintings into the
+     options for a film title, which a player discards on sight as a category
+     error, leaving a one-in-two guess.
+
+     So the question is now: here is the borrowing — name the work it came out
+     of. Options are always four works of the same kind, and none of them
+     contains the answer. "Pale Fire" is only answerable if you know it is
+     Timon of Athens. */
   function qRef(item) {
     const usable = titledRefs(item);
     if (!usable.length) return null;
     const mine = usable[Math.floor(Math.random() * usable.length)];
-    const others = scopedItems().filter((i) => titledRefs(i).length && i.id !== item.id);
-    // Forward: given the modern thing, name the source. Backward: given the
-    // source, name what borrowed it. Both are worth drilling; they fail
-    // differently.
-    if (Math.random() < 0.5) {
-      /* Label the options with the line itself, not the citation. Offering
-         "Hamlet 3.1" against "Hamlet 5.1" asks you to tell two scene numbers
-         apart, which is not the skill; offering the actual words asks you to
-         recognise the source, which is. Decoys are taken one per work so the
-         board is never three excerpts from the same play. */
-      const label = (i) => (i.kind === 'art'
-        ? `${i.title} — ${i.artist}`
-        : `“${snippet(i.text.join(' '), 44)}” — ${i.work}`);
-      const byWork = new Map();
-      for (const o of shuffle(others.slice())) {
-        const k = o.kind === 'art' ? o.artistKey : o.workSlug;
-        if (k === (item.kind === 'art' ? item.artistKey : item.workSlug)) continue;
-        if (!byWork.has(k)) byWork.set(k, o);
-      }
-      const spread = [...byWork.values()].map(label);
-      const pool = others.map(label);
-      const { options, answer } = fourOptions(label(item), pool, spread);
+
+    if (item.kind === 'art') {
+      const label = (i) => `${i.title} — ${i.artist}`;
+      const near = item.near.map((q) => ITEM.get(q)).filter(Boolean);
+      const all = ART.items.filter((i) => i.id !== item.id);
+      const { options, answer } = fourOptions(label(item), all.map(label), near.map(label));
       return {
-        kind: 'ref-forward', ask: 'Where does this come from?', item, options, answer,
-        facet: 'ref', subject: mine,
+        kind: 'ref', ask: 'Which painting does this come from?',
+        item, options, answer, facet: 'ref', subject: mine,
       };
     }
-    const pool = others.flatMap((i) => titledRefs(i).map((r) => r.what));
-    const { options, answer } = fourOptions(mine.what, pool, sample(pool, 6));
+
+    const me = WORK.get(item.workSlug);
+    if (!me) return null;                       // sonnets have no play to name
+    const others = TEXT.works.filter((w) => w.slug !== item.workSlug);
+    const sameGenre = others.filter((w) => w.genre === me.genre);
+    const nearYear = others.filter((w) => me.year && w.year && Math.abs(w.year - me.year) <= 8);
+    const hard = shuffle([
+      ...sameGenre.filter((w) => nearYear.includes(w)),
+      ...sameGenre,
+    ]).map((w) => w.title);
+    const { options, answer } = fourOptions(me.title, others.map((w) => w.title), hard);
     return {
-      kind: 'ref-back', ask: 'Which of these took its name from this?', item,
-      options, answer, facet: 'ref', subject: mine,
+      kind: 'ref', ask: 'Which play does this come from?',
+      item, options, answer, facet: 'ref', subject: mine,
     };
   }
 
@@ -888,22 +897,16 @@
     const timed = s.mode.timed;
     let body = `<p class="ask-line">${esc(q.ask)}</p>`;
 
-    if (q.kind === 'art' || (q.kind === 'ref-back' && q.item.kind === 'art')) {
+    if (q.kind === 'art') {
       const lq = LQIP[q.item.id] || '';
-      body += `<div class="plate${q.kind === 'ref-back' ? ' contain' : ''}">
+      body += `<div class="plate">
         ${lq ? `<img class="lq" src="${lq}" alt="">` : ''}
         <img class="full" id="full" alt="" decoding="async"></div>`;
-      if (q.kind === 'ref-back') {
-        body += `<p class="sub-line">${esc(`${q.item.title} — ${q.item.artist}`)}</p>`;
-      }
     } else if (q.kind === 'cloze') {
       body += `<p class="quote" id="quote">${clozeMarkup(q)}</p>`;
-    } else if (q.kind === 'ref-forward') {
+    } else if (q.kind === 'ref') {
       body += `<p class="prompt-big">${esc(q.subject.what)}</p>
         <p class="sub-line">${esc([q.subject.by, q.subject.kind, q.subject.year].filter(Boolean).join(' · '))}</p>`;
-    } else if (q.kind === 'ref-back') {
-      body += `<p class="quote">${lineMarkup(q.item)}</p>
-        <p class="sub-line">${esc(q.item.cite)}</p>`;
     } else {
       body += `<p class="quote" id="quote">${lineMarkup(q.item, s.mode.reveal === 'words')}</p>`;
       if (!q.hideSpeaker && q.item.speaker) {
@@ -914,7 +917,7 @@
     body += `<div class="reveal" id="reveal" hidden></div>`;
     $('#stage').innerHTML = body;
 
-    if (q.kind === 'art' || (q.kind === 'ref-back' && q.item.kind === 'art')) loadPlate(q);
+    if (q.kind === 'art') loadPlate(q);
     if (s.mode.reveal === 'words' && $('#quote')) revealWords();
 
     $('#choices').innerHTML = q.options.map((o, i) =>
