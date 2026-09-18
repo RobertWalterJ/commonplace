@@ -28,7 +28,7 @@
 
   // Stamped at deploy time by build/make-deploy.mjs. Left as the placeholder
   // when running from app/, so Settings can honestly say "dev".
-  const BUILD = "2026-09-04 20:36 · b494c95";
+  const BUILD = "2026-09-18 09:34 · 1d48fed";
 
   /* The single-file build (build/bundle-artifact.mjs) inlines its data and its
      paintings as data URIs and has no server behind it. That changes three

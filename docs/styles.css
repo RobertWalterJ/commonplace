@@ -45,21 +45,31 @@
   --line-2: #d2d2e8;
   --ink: #15152b;
   --ink-2: #5a5a76;
-  --ink-3: #8f8fa4;
+  --ink-3: #747488;      /* was #8f8fa4 — 3.17:1 on paper, below AA */
 
   --indigo: #4a4ecf;
   --indigo-deep: #2f2f9e;
   --violet: #7d80f2;
-  --gold: #d69a1e;
+  --gold: #d69a1e;       /* fills, dots and the bar: bright, never text */
+  --gold-ink: #956700;   /* the same gold as WORDS. #d69a1e was 2.24:1 on
+                            its own chip, and gold cannot stay that
+                            saturated and still be readable. */
   --gold-soft: #fff3d6;
   --gold-line: #f0d38a;
 
-  --good: #1c8b4e;
-  --good-bg: #e7f6ec;
-  --good-line: #9dd6b3;
-  --bad: #d1362c;
-  --bad-bg: #fdeceb;
-  --bad-line: #f0b0ab;
+  /* VERDICT COLOURS, chosen by build/audit-colour.mjs rather than by eye.
+     Green against red is the worst possible pair for the commonest colour
+     blindness: the old #1c8b4e and #d1362c were 1.14:1 in lightness and
+     collapsed to a CIEDE2000 of 10.8 under deuteranopia, and their two washes
+     to 0.5 — which is to say the right-answer wash and the wrong-answer wash
+     were the same colour. Pushing the green towards teal is what buys the
+     separation back; the red barely moves. */
+  --good: #0e7061;
+  --good-bg: #eef9f6;
+  --good-line: #99c5bd;
+  --bad: #c41726;
+  --bad-bg: #ffdad5;
+  --bad-line: #e99092;
 
   --font-display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
   --font-ui: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -93,12 +103,17 @@
   --gold-soft: #33291250;
   --gold-line: #6b551f;
 
-  --good: #7fd39c;
-  --good-bg: #17301f;
-  --good-line: #2f5c3f;
-  --bad: #f0938a;
-  --bad-bg: #331d1c;
-  --bad-line: #6b3730;
+  /* Night verdicts, also from build/audit-colour.mjs. This block escaped the
+     first pass of the audit because its selector uses single quotes — so the
+     theme actually in use was the unchecked one, and it was the worse of the
+     two: right and wrong sat at a CIEDE2000 of 4.6 under deuteranopia. */
+  --good: #30dfaf;
+  --good-bg: #28332e;
+  --good-line: #2c8068;
+  --bad: #fa6f6c;
+  --bad-bg: #3d1917;
+  --bad-line: #923f3d;
+  --gold-ink: #e8bb52;   /* on a dark ground the bright gold IS the readable one */
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .35);
   --shadow-md: 0 4px 14px rgba(0, 0, 0, .4);
@@ -233,7 +248,7 @@ h1, h2 { margin: 0; font-family: var(--font-display); font-weight: 700; letter-s
 .daily-txt { min-width: 0; flex: 1; }
 .daily-kicker {
   font-size: .62rem; text-transform: uppercase; letter-spacing: 1px;
-  font-weight: 600; color: var(--gold);
+  font-weight: 600; color: var(--gold-ink);
 }
 /* Trimmed in JS rather than clamped in CSS: inside a <button> the computed
    display comes back flow-root, so -webkit-line-clamp silently does nothing. */
@@ -427,7 +442,7 @@ h1, h2 { margin: 0; font-family: var(--font-display); font-weight: 700; letter-s
 }
 .badge {
   font-size: .74rem; padding: 4px 11px; border-radius: 20px; font-weight: 600;
-  background: var(--gold-soft); color: var(--gold); border: 1px solid var(--gold-line);
+  background: var(--gold-soft); color: var(--gold-ink); border: 1px solid var(--gold-line);
 }
 .badge.bump { animation: badgeBump .34s cubic-bezier(.2,.9,.3,1); }
 @keyframes badgeBump {
@@ -694,3 +709,24 @@ h1, h2 { margin: 0; font-family: var(--font-display); font-weight: 700; letter-s
 @media (min-width: 620px) {
   .view { max-width: 560px; margin: 0 auto; }
 }
+
+/* A MARK, NOT JUST A COLOUR.
+ *
+ * The verdict colours now survive deuteranopia, but colour was the ONLY thing
+ * separating right from wrong — and a palette can be changed back by anyone who
+ * thinks it looks nicer. A tick and a cross cannot be un-seen by a colour-blind
+ * reader, by anyone outdoors in bright sun, or on a phone in a warm night mode.
+ * build/audit-colour.mjs grades these two as 'shape' on the strength of exactly
+ * this rule; delete the marks and the audit's claim stops being true.
+ *
+ * Absolutely positioned, because these option rows are variously flex and grid
+ * and an extra child lands somewhere different in each. aria-hidden by way of
+ * being a pseudo-element, so nothing is read out twice. */
+.opt { position: relative; }
+.opt.right::after,
+.opt.wrong::after {
+  position: absolute; top: 6px; right: 9px;
+  font-weight: 800; font-size: 1rem; line-height: 1; pointer-events: none;
+}
+.opt.right::after { content: '✓'; color: var(--good); }
+.opt.wrong::after { content: '✗'; color: var(--bad); }
