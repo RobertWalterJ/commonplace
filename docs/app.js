@@ -28,7 +28,7 @@
 
   // Stamped at deploy time by build/make-deploy.mjs. Left as the placeholder
   // when running from app/, so Settings can honestly say "dev".
-  const BUILD = "2026-09-18 09:34 · 1d48fed";
+  const BUILD = "2026-09-18 11:03 · eb3188f";
 
   /* The single-file build (build/bundle-artifact.mjs) inlines its data and its
      paintings as data URIs and has no server behind it. That changes three
@@ -55,13 +55,28 @@
     haptics: true,
     auto: true,
     hard: false,
+    paces: {},             // mode id -> key of PACES; a mode not listed is 'relaxed'
   };
 
   const MIN = 60e3, DAY = 864e5;
   const INTERVALS = [0, 12 * MIN, DAY, 3 * DAY, 8 * DAY, 21 * DAY, 60 * DAY];
   const MASTERED_BOX = 4;
-  const QUESTION_MS = 14e3;
-  const URGENT_MS = 4e3;
+  /* Pace. The three timed modes each pick one, and the choice sticks per mode,
+     so Eye can be brisk while Voices stays untimed. The default is the long
+     one: the clock is there to reward knowing it early, not to punish reading
+     slowly. Untimed keeps the zoom and the word-by-word reveal (they are the
+     puzzle, not the pressure) but nothing expires and nothing counts down. */
+  const PACES = {
+    relaxed: { ms: 30e3, label: 'Relaxed', note: '30 seconds' },
+    steady:  { ms: 20e3, label: 'Steady',  note: '20 seconds' },
+    brisk:   { ms: 12e3, label: 'Brisk',   note: '12 seconds' },
+    untimed: { ms: null, label: 'Untimed', note: 'No clock' },
+  };
+  const DEFAULT_PACE = 'relaxed';
+  const UNTIMED_REVEAL_MS = 20e3;  // how long the reveal runs when nothing is timed
+  const URGENT_MS = 5e3;
+  const paceKey = (m) => (store.settings.paces || {})[m.id] in PACES ? store.settings.paces[m.id] : DEFAULT_PACE;
+  const limitFor = (m) => (m.timed ? PACES[paceKey(m)].ms : null);
   const ZOOM_FROM = 2.0;           // how tight Eye starts before pulling back
 
   /* Modes. Each drills a different move — that is the whole reason there are
@@ -73,7 +88,7 @@
       id: 'eye', label: 'Eye', glyph: 'E',
       blurb: 'Recognise the painting', domain: 'art', facets: ['artist', 'title'],
       timed: true, reveal: 'zoom',
-      lede: 'A painting, starting tight on one detail and pulling back as the clock runs. Answer as early as you dare.',
+      lede: 'A painting, starting tight on one detail and slowly pulling back. Answer as early as you dare.',
     },
     cadence: {
       id: 'cadence', label: 'Cadence', glyph: 'C',
@@ -814,6 +829,13 @@
         + chip('3', 'Specialist', st.tiers.includes(3)), 'tiers');
     }
     html += group('Length', [8, 12, 20, 30].map((n) => chip(String(n), String(n), st.length === n)).join(''), 'length');
+    if (m.timed) {
+      const now = paceKey(m);
+      html += group('Pace', Object.entries(PACES).map(([k, p]) => chip(k, p.label, now === k)).join(''), 'pace');
+      html += `<p class="lede" id="pace-note">${PACES[now].ms
+        ? `${esc(PACES[now].note)} a question. The sooner you answer, the more it scores.`
+        : 'No clock. The picture and the line still reveal themselves, but take as long as you like.'}</p>`;
+    }
     if (m.id === 'eye' || m.id === 'cadence') {
       html += `<div class="switch"><div><b>Cruel decoys</b>
         <span>Wrong answers become the ones you could actually give.</span></div>
@@ -841,6 +863,7 @@
       if (s.size) st.tiers = [...s].sort();
     });
     bind('#length', (k) => { st.length = +k; });
+    bind('#pace', (k) => { st.paces = { ...(st.paces || {}), [m.id]: k }; });
     if ($('#t-hard')) $('#t-hard').onclick = () => { st.hard = !st.hard; saveStore(); renderSetup(id); };
 
     const n = poolSize(m);
@@ -869,7 +892,9 @@
     session = {
       mode: m, questions, i: 0, correct: 0, streak: 0, best: 0, score: 0,
       misses: [], at: Date.now(), drill: opts.drill || null,
+      limit: limitFor(m),
     };
+    session.revealMs = session.limit || UNTIMED_REVEAL_MS;
     show('game');
     renderQuestion();
   }
@@ -894,7 +919,7 @@
 
     if (q.kind === 'sequence') return renderSequence(q);
 
-    const timed = s.mode.timed;
+    const timed = !!s.limit;
     let body = `<p class="ask-line">${esc(q.ask)}</p>`;
 
     if (q.kind === 'art') {
@@ -967,7 +992,7 @@
     img.style.transition = 'none';
     img.style.transform = `scale(${ZOOM_FROM})`;
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      img.style.transition = `transform ${QUESTION_MS}ms linear`;
+      img.style.transition = `transform ${session.revealMs}ms linear`;
       img.style.transform = 'scale(1)';
     }));
   }
@@ -975,7 +1000,7 @@
   function revealWords() {
     const spans = $$('#quote .dim');
     if (!spans.length) return;
-    const step = Math.max(90, (QUESTION_MS * 0.55) / spans.length);
+    const step = Math.max(90, (session.revealMs * 0.55) / spans.length);
     let i = 0;
     clearInterval(revealWords._h);
     revealWords._h = setInterval(() => {
@@ -995,7 +1020,7 @@
       fill.style.transition = 'none';
       fill.style.transform = 'scaleX(1)';
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        fill.style.transition = `transform ${QUESTION_MS}ms linear`;
+        fill.style.transition = `transform ${session.limit}ms linear`;
         fill.style.transform = 'scaleX(0)';
       }));
     }
@@ -1010,8 +1035,8 @@
       clock.classList.toggle('low', low);
       if (bar) bar.classList.toggle('low', low);
     }, 100);
-    clock.textContent = `${(QUESTION_MS / 1000).toFixed(1)}s`;
-    tick = setTimeout(() => answer(-1), QUESTION_MS);
+    clock.textContent = `${(session.limit / 1000).toFixed(1)}s`;
+    tick = setTimeout(() => answer(-1), session.limit);
   }
 
   function stopTimer() {
@@ -1023,8 +1048,8 @@
   }
 
   function remainingMs() {
-    if (!session || !session.mode.timed || !session.startedAt) return 0;
-    return Math.max(0, QUESTION_MS - (Date.now() - session.startedAt));
+    if (!session || !session.limit || !session.startedAt) return 0;
+    return Math.max(0, session.limit - (Date.now() - session.startedAt));
   }
 
   function answer(choice) {
@@ -1055,7 +1080,7 @@
 
     if (ok) {
       s.correct++; s.streak++; s.best = Math.max(s.best, s.streak);
-      s.score += 100 + (s.mode.timed ? Math.round((left / QUESTION_MS) * 60) : 0) + Math.min(s.streak, 8) * 5;
+      s.score += 100 + (s.limit ? Math.round((left / s.limit) * 60) : 0) + Math.min(s.streak, 8) * 5;
       SFX.correct(s.streak); flash('good'); buzz(12);
     } else {
       s.streak = 0;
